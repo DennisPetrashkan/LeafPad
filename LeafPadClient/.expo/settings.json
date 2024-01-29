@@ -1,0 +1,10 @@
+{
+  "hostType": "lan",
+  "lanType": "ip",
+  "dev": true,
+  "minify": false,
+  "urlRandomness": "pc-ern",
+  "https": false,
+  "scheme": "com.bobthedestroyer.LeafPad",
+  "devClient": false
+}
