@@ -37,7 +37,7 @@ function Home({ navigation }) {
         'base64',
       )
 
-      const openai = new OpenAI({ apiKey: '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' });
+      const openai = new OpenAI({ apiKey: 'api key' });
       // console.log(data)
       const transcription = await openai.audio.transcriptions.create({
         file: data.data,
