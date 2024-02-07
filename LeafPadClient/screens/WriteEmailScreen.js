@@ -22,11 +22,9 @@ const WriteEmailScreen = ({navigation}) => {
     
     try {
       const snapshot = await get(child(dbRef, 'users/' + userId + '/clients'));
-      console.log("bruh")
       const clients = [];
       snapshot.forEach((clientSnapshot) => {
         clients.push(clientSnapshot.val().clientEmail);
-        console.log("hello")
       });
 
       setEmailAddresses(clients);

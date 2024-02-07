@@ -1,7 +1,7 @@
 // General Purpose External Imports
 
 // React Imports
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Alert } from 'react';
 import { StyleSheet, Button, View, Text, TouchableOpacity, FlatList } from 'react-native';
 
 // Firebase Imports
@@ -9,8 +9,10 @@ import { ref, child, get } from 'firebase/database';
 import { FIREBASE_AUTH, FIREBASE_DATABASE } from '../services/Config';
 
 // Other Imports
-import Voice from '@react-native-voice/voice';
-import { Permissions } from 'expo-permissions';
+import { Audio } from 'expo-av';
+import { Buffer } from 'buffer';
+import OpenAI from "openai";
+import * as FileSystem from 'expo-file-system';
 import { FontAwesome } from '@expo/vector-icons';
 import { Entypo } from '@expo/vector-icons';
 
@@ -20,33 +22,73 @@ import { saveNote } from './WriteNoteScreen';
 function Home({ navigation }) {
   const [name, setName] = useState('');
   const [clientList, setClientList] = useState([]);
-  const [result, setResult] = useState('nothing');
-  const [isRecording, setIsRecording] = useState(false);
+  const [recording, setRecording] = useState()
+  const [permissionResponse, requestPermission] = Audio.usePermissions();
+  const [audioUri, setAudioUri] = useState('');
+  const [audioTranscript, setAudioTranscript] = useState('');
 
-  const onSpeechStart = (event) => {
-    console.log('Recording Started. . .:', event);
-  };
-
-  const onSpeechResults = result => { setResult(result.value[0])}
-
-  const startRecording = async () => {
-    setIsRecording(true)
+  const getTranscript = async () => {
+  
     try{
-      await Voice.start('en-US');
-    }catch (err){
-      console.log(err)
-    }
-  };
+      const data = Buffer.from(
+        await FileSystem.readAsStringAsync(audioUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        }),
+        'base64',
+      )
 
-  const stopRecording = async () => {
-    try{
-      await Voice.stop()
-      // Voice.removeAllListeners();
-      setIsRecording(false)
-    } catch (error){
-      console.log(error)
+      const openai = new OpenAI({ apiKey: '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' });
+      // console.log(data)
+      const transcription = await openai.audio.transcriptions.create({
+        file: data.data,
+        model: "whisper-1",
+      });
+    
+      console.log(transcription.text);
+      
+    } catch (error) {
+      console.error(error);
     }
   }
+
+  async function startRecording() {
+    try {
+      if (permissionResponse.status !== 'granted') {
+        console.log('Requesting permission..');
+        await requestPermission();
+      }
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      console.log('Starting recording..');
+      const { recording } = await Audio.Recording.createAsync( Audio.RecordingOptionsPresets.HIGH_QUALITY = {android: {extension: ".wav", outputFormat: "AndroidOutputFormat.DEFAULT"}, ios: {
+        extension: ".wav"
+      }}
+      );
+      setRecording(recording);
+      console.log('Recording started');
+    } catch (err) {
+      console.error('Failed to start recording', err);
+    }
+  }
+
+  async function stopRecording() {
+    console.log('Stopping recording..');
+    setRecording(undefined);
+    await recording.stopAndUnloadAsync();
+    await Audio.setAudioModeAsync(
+      {
+        allowsRecordingIOS: false,
+      }
+    );
+    const uri = recording.getURI();
+    setAudioUri(uri);
+    console.log('Recording stopped and stored at', uri);
+    getTranscript();
+  }
+
 
   const fetchUserName = () => {
     const userId = FIREBASE_AUTH.currentUser.uid;
@@ -67,19 +109,16 @@ function Home({ navigation }) {
       console.error('Error fetching client list:', error);
     }
   }, []);
+  
 
   useEffect(() => {
-    Voice.onSpeechStart = onSpeechStart;
-    Voice.onSpeechEnd = stopRecording;
-    Voice.onSpeechResults = onSpeechResults
-    // Voice.onSpeechError = () => console.log('onSpeechError:', error );
-
+    
     fetchClientList();
 
     const unsubscribe = navigation.addListener('focus', () => {
       fetchClientList();
     });
-    // , () => {Voice.destroy().then(Voice.removeAllListeners)}
+
     return unsubscribe
   }, [fetchClientList, navigation]);
 
@@ -121,9 +160,9 @@ function Home({ navigation }) {
       <TouchableOpacity style={styles.addClients} onPress={AddClientNavigation}>
         <Text style={styles.heading2}>Add Clients</Text>
       </TouchableOpacity>
-
-      <TouchableOpacity style={styles.micContainer} onPress={(isRecording ? stopRecording: startRecording)}>
-        {!isRecording ? <FontAwesome name="microphone" size={50} color="#DB5869" /> : <Entypo name="dots-three-horizontal" size={50} color="#DB5869" />}
+      <Text>Recognized Text: {audioTranscript.speech}</Text>
+      <TouchableOpacity style={styles.micContainer} onPress={(recording ? stopRecording: startRecording)}>
+        {recording ? <Entypo name="dots-three-horizontal" size={50} color="#DB5869" /> : <FontAwesome name="microphone" size={50} color="#DB5869" /> }
       </TouchableOpacity>
       
     </View>

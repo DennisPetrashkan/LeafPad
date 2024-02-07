@@ -1,15 +1,19 @@
-module.exports = function (api) {
-  api.cache(true);
+module.exports = (api) => {
+  api.cache(true)
   return {
-    presets: ["babel-preset-expo"],
-    plugins: [
-      [
-        "module-resolver",
-        {
-          extensions: [".tsx", ".ts", ".js", ".json"],
-        },
-      ],
-      "react-native-reanimated/plugin",
-    ],
-  };
-};
+    "env": {
+      "development": {
+        "plugins": [
+          ["module-resolver", {
+            "root": ["./src"],
+            "alias": {
+              "test": "./test",
+              "underscore": "lodash"
+            }
+          }]
+        ]
+      }
+    },
+    presets: ['babel-preset-expo']
+  }
+}
